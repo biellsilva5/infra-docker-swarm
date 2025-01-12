@@ -1,9 +1,8 @@
 services:
-  postgres:
+  postgres01:
     image: postgres:15
     command: [postgres, --max_connections=100]
     environment:
-      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     networks:
       - postgres01_network
