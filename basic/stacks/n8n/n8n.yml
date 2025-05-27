@@ -1,0 +1,161 @@
+services:
+  n8n_editor:
+    image: n8nio/n8n:latest
+    #command: start
+    environment:
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_HOST: postgres01
+      DB_POSTGRESDB_DATABASE: n8n_fila
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: password
+      N8N_ENCRYPTION_KEY: password
+      # hosts e URL
+      N8N_HOST: flow.inautomation.shop
+      N8N_EDITOR_BASE_URL: https://flow.inautomation.shop/
+      N8N_PROTOCOL: https
+      NODE_ENV: production
+      # webhooks
+      WEBHOOK_URL: https://webhook.flow.inautomation.shop/
+      # modo de execuçao para fila
+      EXECUTIONS_MODE: queue
+      # redis
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_DB: 2
+      # bibliotecas utilizadas
+      NODE_FUNCTION_ALLOW_EXTERNAL: moment,lodash,moment-with-locales
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: 1440
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.n8n_editor.rule=Host(`flow.inautomation.shop`)
+        - traefik.http.routers.n8n_editor.service=n8n_editor
+        - traefik.http.routers.n8n_editor.entrypoints=websecure
+        - traefik.http.routers.n8n_editor.tls.certresolver=le
+        - traefik.http.routers.n8n_editor.tls=true
+        - traefik.http.services.n8n_editor.loadbalancer.server.port=5678
+    networks:
+      - n8n_network
+      - traefik_public
+      - redis_network
+      - postgres01_network
+  
+  n8n_webhook:
+    image: n8nio/n8n:latest
+    command: webhook
+    environment:
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_HOST: postgres01
+      DB_POSTGRESDB_DATABASE: n8n_fila
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: password
+      N8N_ENCRYPTION_KEY: password
+      # hosts e URL
+      N8N_HOST: flow.inautomation.shop
+      N8N_EDITOR_BASE_URL: https://flow.inautomation.shop/
+      N8N_PROTOCOL: https
+      NODE_ENV: production
+      # webhooks
+      WEBHOOK_URL: https://webhook.flow.inautomation.shop/
+      # modo de execuçao para fila
+      EXECUTIONS_MODE: queue
+      # redis
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_DB: 2
+      # bibliotecas utilizadas
+      NODE_FUNCTION_ALLOW_EXTERNAL: moment,lodash,moment-with-locales
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: 1440
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 320M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.n8n_webhook.rule=Host(`webhook.flow.inautomation.shop`)
+        - traefik.http.routers.n8n_webhook.service=n8n_webhook
+        - traefik.http.routers.n8n_webhook.entrypoints=websecure
+        - traefik.http.routers.n8n_webhook.tls.certresolver=le
+        - traefik.http.routers.n8n_webhook.tls=true
+        - traefik.http.services.n8n_webhook.loadbalancer.server.port=5678
+    networks:
+      - n8n_network
+      - redis_network
+      - postgres01_network
+      - traefik_public
+  
+  n8n_worker:
+    image: n8nio/n8n:latest
+    command: worker --concurrency=3
+    environment:
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_HOST: postgres01
+      DB_POSTGRESDB_DATABASE: n8n_fila
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: password
+      N8N_ENCRYPTION_KEY: password
+      # hosts e URL
+      N8N_HOST: flow.inautomation.shop
+      N8N_EDITOR_BASE_URL: https://flow.inautomation.shop/
+      N8N_PROTOCOL: https
+      NODE_ENV: production
+      # webhooks
+      WEBHOOK_URL: https://webhook.flow.inautomation.shop/
+      # modo de execuçao para fila
+      EXECUTIONS_MODE: queue
+      # redis
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_DB: 2
+      # bibliotecas utilizadas
+      NODE_FUNCTION_ALLOW_EXTERNAL: moment,lodash,moment-with-locales
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: 1440
+    deploy:
+      mode: replicated
+      replicas: 3
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 1024M
+    networks:
+      - n8n_network
+      - postgres01_network
+      - redis_network
+      - traefik_public
+
+networks:
+  traefik_public:
+    external: true
+  postgres01_network:
+    external: true
+  n8n_network:
+    external: true
+  redis_network:
+    external: true

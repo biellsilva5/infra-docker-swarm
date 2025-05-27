@@ -1,0 +1,120 @@
+x-base: &base
+  image: chatwoot/chatwoot:latest
+  restart: 'no'
+  command: echo 'OK'
+  environment:
+    INSTALLATION_NAME: chatwoot_app
+    NODE_ENV: production
+    RAILS_ENV: production
+    INSTALLATION_ENV: docker
+    SECRET_KEY_BASE: chocolate # <SUA_KEY>
+    FRONTEND_URL: https://chatwoot.local
+    DEFAULT_LOCALE: pt_BR
+    FORCE_SSL: "true"
+    ENABLE_ACCOUNT_SIGNUP: "true"
+    REDIS_URL: redis://redis:6379
+    # # Servidor de Email Gmail
+    # MAILER_SENDER_EMAIL: Chatwoot <seuemail@gmail.com>
+    # SMTP_DOMAIN: gmail.com
+    # SMTP_ADDRESS: smtp.gmail.com
+    # SMTP_PORT: 587
+    # SMTP_USERNAME: seuemail@gmail.com
+    # SMTP_PASSWORD: <sua_senha_app>
+    # SMTP_AUTHENTICATION: login
+    # SMTP_ENABLE_STARTTLS_AUTO: "true"
+    # SMTP_OPENSSL_VERIFY_MODE: peer
+    # MAILER_INBOUND_EMAIL_DOMAIN: <seuemail>@gmail.com
+    # Banco de dados
+    POSTGRES_HOST: postgres01
+    POSTGRES_USERNAME: postgres
+    POSTGRES_PASSWORD: password # <SENHA_POSTGRES>
+    POSTGRES_DATABASE: chatwoot
+    # Armazenamento
+    ACTIVE_STORAGE_SERVICE: local
+    # logs
+    RAILS_LOG_TO_STDOUT: "true"
+    # Avatar Bot
+    USE_INBOX_AVATAR_FOR_BOT: "true"
+
+services:
+  chatwoot_migrate:
+      <<: *base
+      restart: "no"
+      deploy:
+        replicas: 1
+        restart_policy:
+          condition: none
+      command: ['bundle', 'exec', 'rails', 'db:migrate']
+      networks:
+        - chatwoot_network
+        - postgres01_network
+        - redis_network  
+    
+  #serviço principal do front chatwoot
+  chatwoot_app:
+    <<: *base
+    command: bundle exec rails s -p 3000 -b 0.0.0.0
+    entrypoint: docker/entrypoints/rails.sh
+    volumes:
+      - chatwoot_data:/app/storage
+    networks:
+      - chatwoot_network
+      - traefik_public
+      - postgres01_network
+      - redis_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.chatwoot_app.rule=Host(`chatwoot.local`)
+        - traefik.http.services.chatwoot_app.loadbalancer.server.port=3000
+        - traefik.http.routers.chatwoot_app.service=chatwoot_app
+        - traefik.http.routers.chatwoot_app.entrypoints=websecure
+        - traefik.http.routers.chatwoot_app.tls.certresolver=le
+        - traefik.http.routers.chatwoot_app.tls=true
+        # resolver problema de websocket
+        - traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https
+        - traefik.http.routers.chatwoot_app.middlewares=sslheader
+
+  #worker
+  chatwoot_worker:
+    <<: *base
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    volumes:
+      - chatwoot_data:/app/storage
+    networks:
+      - chatwoot_network
+      - postgres01_network
+      - redis_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+volumes:
+  chatwoot_data:
+    external: true
+
+networks:
+  traefik_public:
+    external: true
+  chatwoot_network:
+    external: true
+  postgres01_network:
+    external: true
+  redis_network:
+    external: true

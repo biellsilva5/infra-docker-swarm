@@ -28,7 +28,7 @@ services:
         constraints: [node.role == manager]
       labels:
         - traefik.enable=true
-        - traefik.http.routers.portainer.rule=Host(`portainer.local`)
+        - traefik.http.routers.portainer.rule=Host(`portainer.beflow.host`)
         - traefik.http.services.portainer.loadbalancer.server.port=9000
         - traefik.http.routers.portainer.service=portainer
         - traefik.http.routers.portainer.tls.certresolver=le
